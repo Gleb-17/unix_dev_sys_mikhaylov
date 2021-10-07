@@ -2,4 +2,11 @@
 *.so
 *.o
 a.out
+core
+segfault
+infloop
 simple3
+simple2
+simple4
+simple
+build/*

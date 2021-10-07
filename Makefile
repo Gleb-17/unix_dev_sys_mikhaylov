@@ -1,4 +1,4 @@
-CFLAGS=-Wall
+CFLAGS=-Wall -ggdb
 TARGET=simple3
 PREFIX=/usr/local
 
