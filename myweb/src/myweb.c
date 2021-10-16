@@ -1,5 +1,9 @@
+#include <errno.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define HTTP_HEADER_LEN 256
 #define HTTP_REQUEST_LEN 256
@@ -11,6 +15,10 @@
 #define REQ_END 100
 #define ERR_NO_URI -100
 #define ERR_ENDLESS_URI -101
+
+static const char* logfileDir = "/var/log/myweb_log";
+static const char* logfile = "weblog";
+static DIR* dir = NULL;
 
 struct http_req {
 	char request[HTTP_REQUEST_LEN];
@@ -31,7 +39,7 @@ int fill_req(char *buf, struct http_req *req) {
 	}
 	char *p, *a, *b;
 	char* p_up = 0; //Путь (uri path)
-	char* p_upl = 0; //Строка параметров (uri_params)
+    //char* p_upl = 0; //Строка параметров (uri_params)
 
 	// Это строка GET-запроса
 	p = strstr(buf, "GET");
@@ -49,7 +57,7 @@ int fill_req(char *buf, struct http_req *req) {
 			b = strchr(a, ' ');
 			if ( b != NULL )
 			{ // конец URI
-				strncpy(req->uri, a, b-a);
+                strncpy(req->uri, a, b - a);
 				p_up = strchr(a, '?');
 				if( p_up != NULL )
 				{
@@ -71,8 +79,56 @@ int fill_req(char *buf, struct http_req *req) {
 	return 0;	
 }
 
-int log_req(struct http_req *req) {
-	// fprintf(stderr, "%s %s\n%s\n", req->request, req->method, req->uri);
+int print_error()
+{
+    printf("%s\n", strerror(errno));
+    return -1;
+}
+
+//Проверка наличия каталога
+int check_directory()
+{
+    if ((dir = opendir(logfileDir)) == NULL)
+    {
+        if (mkdir(logfileDir, 0755) < 0)
+            return print_error();
+        else
+        {
+            int res = chdir(logfileDir);
+            if(res == -1)
+                return print_error();
+        }
+    }
+    return 0;
+}
+
+int log_req(struct http_req *req)
+{
+    if(check_directory())
+        return -1;
+
+
+    // Проверка наличия файла
+    FILE* f = NULL;
+    if ((f = fopen(logfile, "r")) == NULL)
+    {
+        //файл отсутствует
+        if ((f = fopen(logfile, "w")) == NULL)
+            return print_error();
+
+        if (chmod(logfile, S_IRWXU | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH ) < 0)
+            return print_error();
+    }
+    else
+    {
+        //файл уже существует
+        fclose(f);
+        f = fopen(logfile, "a");
+    }
+
+    //fprintf(stderr, "%s %s\n%s\n", req->request, req->method, req->uri);
+
+    fclose(f);
 	return 0;
 }
 
@@ -93,7 +149,7 @@ int make_resp(struct http_req *req) {
 
 int main (void) {
 	char buf[HTTP_HEADER_LEN];
-	struct http_req req = {0};
+    struct http_req req = {0};
 	while(fgets(buf, sizeof(buf),stdin)) {
 		int ret = fill_req(buf, &req);
 		if (ret == 0)

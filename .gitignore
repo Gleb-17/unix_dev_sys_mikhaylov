@@ -10,4 +10,6 @@ simple2
 simple4
 simple
 build/*
+build*
 myweb/build/
+*.user
