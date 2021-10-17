@@ -1,9 +1,8 @@
-#include <errno.h>
-#include <dirent.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
+
+
+#include "journal.h"
 
 #define HTTP_HEADER_LEN 256
 #define HTTP_REQUEST_LEN 256
@@ -16,9 +15,7 @@
 #define ERR_NO_URI -100
 #define ERR_ENDLESS_URI -101
 
-static const char* logfileDir = "/var/log/myweb_log";
-static const char* logfile = "weblog";
-static DIR* dir = NULL;
+
 
 struct http_req {
 	char request[HTTP_REQUEST_LEN];
@@ -32,73 +29,94 @@ struct http_req {
 	// accept
 };
 
+int check_GET_str(char *buf, struct http_req *req)
+{
+    char *p, *a, *b;
+    char* p_up = 0; //Путь (uri path)
+
+    //test
+    FILE *f = fopen("/var/log/myweb_log/weblog", "a");
+    fprintf(f, "%s\n", buf);
+    fclose(f);
+
+    // Это строка GET-запроса
+    p = strstr(buf, "GET");
+    if (p == buf)
+    {
+        // Строка запроса должна быть вида
+        // GET /dir/ HTTP/1.0
+        // GET /dir HTTP/1.1
+        // GET /test123?r=123 HTTP/1.1
+        // и т.п.
+        strncpy(req->request, buf, strlen(buf));
+        strncpy(req->method, "GET", strlen("GET"));
+        a = strchr(buf, '/');
+        if ( a != NULL)
+        { // есть запрашиваемый URI
+            b = strchr(a, ' ');
+            if ( b != NULL )
+            { // конец URI
+                strncpy(req->uri, a, b - a);
+                p_up = strchr(a, '?');
+                if( p_up != NULL )
+                {
+                    strncpy(req->uri_path, a, p_up - a);
+                }
+                strncpy(req->uri_params, p_up, b - p_up);
+            }
+            else
+            {
+                return ERR_ENDLESS_URI;
+                // тогда это что-то не то
+            }
+        }
+        else
+        {
+            return ERR_NO_URI;
+            // тогда это что-то не то
+        }
+        return 0;
+    }
+    return -1;
+}
+
+int check_Host_str(char *buf, struct http_req *req)
+{
+    char * p = strstr(buf, "Host");
+    if (p == buf)
+    {
+        strncpy(req->request, buf, strlen(buf));
+        return 0;
+    }
+    return -1;
+}
+
+int check_Date_str(char *buf, struct http_req *req)
+{
+    char * p = strstr(buf, "Date");
+    if (p == buf)
+    {
+        strncpy(req->request, buf, strlen(buf));
+        return 0;
+    }
+    return -1;
+}
+
 int fill_req(char *buf, struct http_req *req) {
 	if (strlen(buf) == 2) {
 		// пустая строка (\r\n) означает конец запроса
 		return REQ_END;
 	}
-	char *p, *a, *b;
-	char* p_up = 0; //Путь (uri path)
-    //char* p_upl = 0; //Строка параметров (uri_params)
 
-	// Это строка GET-запроса
-	p = strstr(buf, "GET");
-	if (p == buf) {
-		// Строка запроса должна быть вида
-		// GET /dir/ HTTP/1.0
-		// GET /dir HTTP/1.1
-		// GET /test123?r=123 HTTP/1.1
-		// и т.п.
-		strncpy(req->request, buf, strlen(buf));
-		strncpy(req->method, "GET", strlen("GET"));
-		a = strchr(buf, '/');
-		if ( a != NULL) 
-		{ // есть запрашиваемый URI 
-			b = strchr(a, ' ');
-			if ( b != NULL )
-			{ // конец URI
-                strncpy(req->uri, a, b - a);
-				p_up = strchr(a, '?');
-				if( p_up != NULL )
-				{
-					strncpy(req->uri_path, a, p_up - a);
-				}
-				strncpy(req->uri_params, p_up, b - p_up);
-			} 
-			else 
-			{
-				return ERR_ENDLESS_URI;
-				// тогда это что-то не то
-			}
-		}
-		else {
-			return ERR_NO_URI; 
-			// тогда это что-то не то
-		}
-	}
-	return 0;	
-}
+    if(check_GET_str(buf, req) == 0)
+        return 0;
 
-int print_error()
-{
-    printf("%s\n", strerror(errno));
-    return -1;
-}
+    if(check_Host_str(buf, req) == 0)
+        return 0;
 
-//Проверка наличия каталога
-int check_directory()
-{
-    if ((dir = opendir(logfileDir)) == NULL)
-    {
-        if (mkdir(logfileDir, 0755) < 0)
-            return print_error();
-        else
-        {
-            int res = chdir(logfileDir);
-            if(res == -1)
-                return print_error();
-        }
-    }
+    if(check_Date_str(buf, req) == 0)
+        return 0;
+
     return 0;
 }
 
@@ -107,24 +125,15 @@ int log_req(struct http_req *req)
     if(check_directory())
         return -1;
 
-
-    // Проверка наличия файла
     FILE* f = NULL;
-    if ((f = fopen(logfile, "r")) == NULL)
-    {
-        //файл отсутствует
-        if ((f = fopen(logfile, "w")) == NULL)
-            return print_error();
+    check_file(&f);
 
-        if (chmod(logfile, S_IRWXU | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH ) < 0)
-            return print_error();
-    }
-    else
-    {
-        //файл уже существует
-        fclose(f);
-        f = fopen(logfile, "a");
-    }
+    if(f == NULL)
+        return -1;
+
+    fprintf(f, "%s\n", req->request);
+    fprintf(f, "%s\n", req->method);
+    fprintf(f, "%s\n", req->uri);
 
     //fprintf(stderr, "%s %s\n%s\n", req->request, req->method, req->uri);
 
@@ -147,21 +156,43 @@ int make_resp(struct http_req *req) {
 	return 0;
 }
 
-int main (void) {
+int main ()
+//int main (int argc, char* argv[])
+{
 	char buf[HTTP_HEADER_LEN];
     struct http_req req = {0};
-	while(fgets(buf, sizeof(buf),stdin)) {
-		int ret = fill_req(buf, &req);
-		if (ret == 0)
-			// строка запроса обработана, переходим к следующей
-			continue;
-		if (ret == REQ_END )
-			// конец HTTP запроса, вываливаемся на обработку
-			break;
-		else
-			// какая-то ошибка
-			printf("Error: %d\n", ret);
-	}
+
+//    if(argc > 1)
+//    {
+//        int ret = fill_req(argv[1], &req);
+//        if (ret != 0)
+//            // строка запроса обработана, переходим к следующей
+//            return -1;
+//        if (ret == REQ_END )
+//            // конец HTTP запроса, вываливаемся на обработку
+//            return 0;
+//        else
+//            // какая-то ошибка
+//            printf("Error: %d\n", ret);
+
+//    }
+//    else
+//    {
+        while(fgets(buf, sizeof(buf),stdin))
+        {
+            int ret = fill_req(buf, &req);
+            if (ret == 0)
+                // строка запроса обработана, переходим к следующей
+                continue;
+            if (ret == REQ_END )
+                // конец HTTP запроса, вываливаемся на обработку
+                break;
+            else
+                // какая-то ошибка
+                printf("Error: %d\n", ret);
+        }
+//    }
+
 	log_req(&req);
 	make_resp(&req);
 }
