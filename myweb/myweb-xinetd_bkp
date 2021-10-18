@@ -3,7 +3,7 @@ service http
        socket_type             = stream
        wait                    = no
        user                    = root
-       server                  = /usr/local/bin/myweb-wrap 
-       server_args	       = /srv/myweb /var/log/myweb
+       server                  = /usr/local/bin/myweb 
+       server_args	       = arg1
 }
 
