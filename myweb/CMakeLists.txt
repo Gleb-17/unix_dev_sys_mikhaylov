@@ -19,7 +19,7 @@ add_definitions(-Wall)
 install(DIRECTORY DESTINATION ${LOG_DIR})
 install(DIRECTORY DESTINATION ${WEB_DIR})
 install(FILES ${WEB_FILES} DESTINATION ${WEB_DIR})
-install(FILES ${WRAP_FILES} DESTINATION bin)
+install(PROGRAMS ${WRAP_FILES} DESTINATION bin)
 install(FILES myweb-xinetd DESTINATION ${XINETD})
 
 #real path will be /usr/local/bin if you choose "make install" option

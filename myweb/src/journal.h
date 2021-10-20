@@ -3,9 +3,9 @@
 #include <stdio.h>
 
 
-int print_error();
+//int print_error();
 
-int check_directory();
+//int check_directory();
 
 // Проверка наличия файла
-void check_file(FILE** f);
+//void check_file(FILE** f);
