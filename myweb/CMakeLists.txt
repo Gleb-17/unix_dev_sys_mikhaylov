@@ -11,11 +11,19 @@ set(WEB_FILES webroot/index.html webroot/page1.html)
 set(WRAP_FILES ${SOURCE_DIR}/myweb-wrap)
 
 
+
+
 #target_sources(SOURCES PRIVATE ${SOURCE_DIR}/myweb.c ${SOURCE_DIR}/journal.c)
 file(GLOB SOURCES "${SOURCE_DIR}/*.c")
 
 #compiling and linking source files
 add_executable(${PROJECT_NAME} ${SOURCES})
+
+#add pthread library to compile  (-pthread)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
+
 add_definitions(-Wall)
 
 #Install project (when choosing make install)

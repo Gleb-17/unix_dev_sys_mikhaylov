@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -203,7 +204,9 @@ int log_req(char* log_path, struct http_req *req)
     return 0;
 }
 
-int make_resp(char *base_path, struct http_req *req) {
+int make_resp(char *base_path, struct http_req *req)
+{
+    (void) req;
     //    printf("HTTP/1.1 200 OK\r\n");
     //    printf("Content-Type: text/html\r\n");
     //    printf("\r\n");
@@ -260,6 +263,30 @@ int make_resp(char *base_path, struct http_req *req) {
     return 0;
 }
 
+void* testThreadFunc(void* arg)
+{
+    (void) arg;
+
+    int fd;
+    const char* log_path = "/var/log/myweb/access.log";
+
+    if ((fd = open(log_path, O_WRONLY | O_CREAT | O_APPEND, 0600)) < 0)
+    {
+        perror(log_path);
+        return (void*) 1;
+    }
+
+    for(int i = 0; i < 3; ++i)
+    {
+        if(write_logs(fd, "MESSAGE: ", "IN_THREAD", true) == 1)
+        {
+            perror(log_path);
+            return (void*) 1;
+        }
+    }
+    return (void*) 0;
+}
+
 //int main ()
 int main (int argc, char* argv[])
 {
@@ -271,6 +298,11 @@ int main (int argc, char* argv[])
 
     char buf[HTTP_HEADER_LEN];
     struct http_req req = {0};
+
+    pthread_t thread;
+    pthread_create(&thread, NULL, &testThreadFunc, NULL);
+
+
 
     // задан каталог журнализации
     if ( argc > 2 )
@@ -321,4 +353,6 @@ int main (int argc, char* argv[])
 
     log_req(log_path, &req);
     make_resp(base_path, &req);
+
+    pthread_join(thread, NULL);
 }
