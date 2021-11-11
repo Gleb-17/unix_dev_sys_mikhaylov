@@ -13,8 +13,24 @@ set(WRAP_FILES ${SOURCE_DIR}/myweb-wrap)
 
 #target_sources(SOURCES PRIVATE ${SOURCE_DIR}/myweb.c ${SOURCE_DIR}/journal.c)
 file(GLOB SOURCES "${SOURCE_DIR}/*.c")
+
+#compiling and linking source files
 add_executable(${PROJECT_NAME} ${SOURCES})
 add_definitions(-Wall)
+
+#Install project (when choosing make install)
+#install(TARGETS …)
+#Installs the binary files corresponding to targets built inside the project.
+
+#install(FILES …)
+#General-purpose file installation, which is typically used for header files, documentation, and data files required by your software.
+
+#install(PROGRAMS …)
+#Installs executable files not built by the project, such as shell scripts. This argument is identical to install(FILES) except that the default permissions of the installed file include the executable bit.`
+
+#install(DIRECTORY …)
+#This argument installs an entire directory tree. It may be used for installing directories with resources, such as icons and images.
+
 
 install(DIRECTORY DESTINATION ${LOG_DIR})
 install(DIRECTORY DESTINATION ${WEB_DIR})
