@@ -43,6 +43,12 @@ struct http_req {
     // accept
 };
 
+struct thread_params
+{
+    int argc;
+    char** argv;
+};
+
 int check_GET_str(char *buf, struct http_req *req)
 {
     char *p, *a, *b;
@@ -287,9 +293,9 @@ void* testThreadFunc(void* arg)
     return (void*) 0;
 }
 
-//int main ()
-int main (int argc, char* argv[])
+void* request_received(void* args)
 {
+    struct thread_params* params = (struct thread_params*) args;
     // первый параметр - каталог с контентом
     // второй параметр - каталог для ведения журнала
     char base_path[FILE_NAME_LEN] = "";
@@ -297,18 +303,16 @@ int main (int argc, char* argv[])
     char const *log_file = "access.log";
 
     char buf[HTTP_HEADER_LEN];
-    struct http_req req = {0};
+    struct http_req req = {0, 0, 0, 0, 0};
 
-    pthread_t thread;
-    pthread_create(&thread, NULL, &testThreadFunc, NULL);
-
-
+//    pthread_t thread;
+//    pthread_create(&thread, NULL, &testThreadFunc, NULL);
 
     // задан каталог журнализации
-    if ( argc > 2 )
+    if ( params->argc > 2 )
     {
-        strncpy(base_path, argv[1], strlen(argv[1]));
-        strncpy(log_path, argv[2], strlen(argv[2]));
+        strncpy(base_path, params->argv[1], strlen(params->argv[1]));
+        strncpy(log_path, params->argv[2], strlen(params->argv[2]));
         strcat(log_path, "/");
         strcat(base_path, "/");
 
@@ -354,5 +358,21 @@ int main (int argc, char* argv[])
     log_req(log_path, &req);
     make_resp(base_path, &req);
 
+    //pthread_join(thread, NULL);
+
+    return (void*) 0;
+}
+
+
+int main (int argc, char* argv[])
+{
+    struct thread_params params;
+    params.argc = argc;
+    params.argv = argv;
+
+    pthread_t thread;
+    pthread_create(&thread, NULL, &request_received, &params);
     pthread_join(thread, NULL);
+
+    return 0;
 }
